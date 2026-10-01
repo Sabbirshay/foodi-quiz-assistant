@@ -20,4 +20,6 @@
 - Semantic/Banglish retrieval quality needs an owner-reviewed quiz set. Current retrieval is lexical.
 - The local device must be running for crawling/publication. Schedules remain paused; no Render resources are used.
 
-Production deployment is READY at https://foodi-quiz-assistant.vercel.app (Vercel deployment `dpl_3X9LWYeprt7tmmYcZ5nMxjdJbRTt`). Final production browser checks are recorded after verification.
+Production deployment is READY at https://foodi-quiz-assistant.vercel.app (Vercel deployment `dpl_3X9LWYeprt7tmmYcZ5nMxjdJbRTt`). Production browser verification passed: login, live model selector, settings save (200), hosted worker-start rejection (403), and no JavaScript runtime errors. Quiz requests correctly return 503 until a knowledge revision is published.
+
+Project code is published to https://github.com/Sabbirshay/foodi-quiz-assistant on `main`.

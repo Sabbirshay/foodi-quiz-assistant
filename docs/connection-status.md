@@ -5,7 +5,7 @@
 - Initial migration applied; private `crawl-snapshots` Storage bucket created.
 - Supabase server connection, owner login, OpenRouter catalog, and Google Sheets read access verified.
 - Owner account: `mdronykhan4632@gmail.com`.
-- Vercel project: `foodi-quiz-assistant`, team `creator-camel`.
+- Vercel production: https://foodi-quiz-assistant.vercel.app — READY; sign-in/admin verified.
 - GitHub target: https://github.com/Sabbirshay/foodi-quiz-assistant.
 - Crawling/publication run on the owner's local device; no Render deployment.
 - Production credentials are kept in Vercel secret variables; local credentials stay in ignored `.env.local`.
