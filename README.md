@@ -61,7 +61,7 @@ The crawler runs on your local device; no Render account is needed.
 3. Refresh until the crawler shows **Online**, then click **Run crawl now**. Once online, the hosted admin can also queue jobs for this device.
 4. Review candidates, approve complete sources, and publish while the device remains awake.
 
-Alternatively, `pnpm worker` starts the same local worker in your terminal. It automatically uses an installed Chrome on Linux, or the Playwright Chromium installed above; `CHROME_PATH` can override the executable. A local process lock prevents duplicate workers. Dashboard-started logs are in ignored `storage/worker.log`.
+Alternatively, run `./start-crawler.sh` from the project folder (no pnpm command needed on this configured Linux device), or `pnpm worker`. Both start the same local worker in your terminal. It automatically uses an installed Chrome on Linux, or the Playwright Chromium installed above; `CHROME_PATH` can override the executable. A local process lock prevents duplicate workers. Dashboard-started logs are in ignored `storage/worker.log`.
 
 Keep schedules paused for manual crawling. Optional schedules only execute while the local worker is running. The worker uses Supabase's queue, renews job leases, and verifies the spreadsheet every five minutes. The hosted quiz endpoint also verifies the spreadsheet on demand, so employee answers do not require the local device to remain online. Sources still expire after the admin's source-age limit and need a fresh crawl. Browser security means a hosted page cannot launch a process on your computer; start the worker through the local dashboard first.
 
@@ -79,7 +79,9 @@ Publication appends a staged revision without deleting the prior rows, reads it 
 - Answers validate selection cardinality, current source IDs, exact quotes, and numeric claims. Citation checks do not prove full semantic correctness; human evaluation remains necessary.
 - Stale sources and a spreadsheet not verified for an hour are excluded/blocked. Role and source eligibility are checked again after generation.
 - Raw quiz inputs and generated answers are not persisted. Usage, jobs, and audit records contain metadata.
-- PDF/Drive embeds, image-only policies, and unresolved collapsed sections are flagged and block approval. No OCR or attachment extraction is claimed.
+- The crawler model must support image inputs and structured output. It transcribes SOP images and preserves flowchart nodes, arrows, and branch conditions. Original images are stored privately with the candidate; admin confirmation is required before approval.
+- Unreadable/cropped/ambiguous images, unsupported hosts/formats, more than eight images, or oversized image sets remain blocked. PDF/Drive embeds and unresolved collapsed sections still require manual ingestion.
+- Vision calls conservatively reserve the full selected model input-context cost plus output/per-image costs against the same daily/per-call budgets. Choose spending limits accordingly; unused reservations are reconciled when the provider reports actual usage.
 
 ## Verification
 

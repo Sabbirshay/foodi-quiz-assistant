@@ -82,7 +82,12 @@ export type Model = {
   id: string;
   name: string;
   context_length: number;
-  pricing: { prompt: string; completion: string; request?: string };
+  pricing: {
+    prompt: string;
+    completion: string;
+    request?: string;
+    image?: string;
+  };
   supported_parameters: string[];
   architecture?: { input_modalities?: string[]; output_modalities?: string[] };
 };

@@ -7,7 +7,10 @@ const model = {
   context_length: 128000,
   pricing: { prompt: "0.000001", completion: "0.000002" },
   supported_parameters: ["structured_outputs"],
-  architecture: { input_modalities: ["text"], output_modalities: ["text"] },
+  architecture: {
+    input_modalities: ["text", "image"],
+    output_modalities: ["text"],
+  },
 };
 test("OpenRouter uses owner-selected model, strict JSON, server secrets, and budget reservation", async () => {
   const oldFetch = globalThis.fetch;
@@ -74,6 +77,33 @@ test("OpenRouter uses owner-selected model, strict JSON, server secrets, and bud
     assert.equal(
       (request.response_format as { type: string }).type,
       "json_schema",
+    );
+    await generateJSON({
+      modelId: model.id,
+      system: "Read SOP",
+      payload: {},
+      schema: {},
+      name: "image_fixture",
+      userId: null,
+      purpose: "crawl",
+      images: ["data:image/png;base64,aGVsbG8="],
+    });
+    const multimodal = calls
+      .filter((c) => c.url.endsWith("/chat/completions"))
+      .at(-1)!.body;
+    const messages = multimodal.messages as { content: unknown }[];
+    assert.deepEqual(messages[1].content, [
+      { type: "text", text: "{}" },
+      {
+        type: "image_url",
+        image_url: { url: "data:image/png;base64,aGVsbG8=" },
+      },
+    ]);
+    const amount = calls.filter((c) => c.url.includes("reserve_usage")).at(-1)!
+      .body.p_amount as number;
+    assert.ok(
+      amount > 0.12,
+      "vision must reserve the full model input-context price",
     );
     await assert.rejects(
       generateJSON({

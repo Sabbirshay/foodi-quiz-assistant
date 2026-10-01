@@ -33,6 +33,7 @@ export async function generateJSON({
   userId,
   purpose,
   maxTokens = 1800,
+  images = [],
 }: {
   modelId: string;
   system: string;
@@ -42,11 +43,22 @@ export async function generateJSON({
   userId: string | null;
   purpose: "quiz" | "crawl";
   maxTokens?: number;
+  images?: string[];
 }): Promise<unknown> {
   if (!process.env.OPENROUTER_API_KEY)
     throw new Error("OpenRouter is not connected.");
   const model = (await listModels()).find((m) => m.id === modelId);
   if (!model) throw new Error("Choose an available structured-output model.");
+  if (
+    images.length > 8 ||
+    images.some(
+      (image) =>
+        !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(image),
+    )
+  )
+    throw new Error("Invalid image input.");
+  if (images.length && !model.architecture?.input_modalities?.includes("image"))
+    throw new Error("Select a vision-capable crawler model.");
   const serialized = JSON.stringify(payload);
   // Bytes deliberately overestimate input tokens, including non-Latin scripts.
   const bound =
@@ -55,15 +67,27 @@ export async function generateJSON({
     throw new Error("Evidence exceeds the selected model context.");
   const prompt = Number(model.pricing.prompt),
     completion = Number(model.pricing.completion),
-    request = Number(model.pricing.request ?? 0);
-  if ([prompt, completion, request].some((n) => !Number.isFinite(n) || n < 0))
+    request = Number(model.pricing.request ?? 0),
+    imagePrice = Number(model.pricing.image ?? 0);
+  if (
+    [prompt, completion, request, imagePrice].some(
+      (n) => !Number.isFinite(n) || n < 0,
+    )
+  )
     throw new Error("Model pricing is unavailable.");
   const reservation = must(
     await database().rpc("reserve_usage", {
       p_user: userId,
       p_model: modelId,
       p_purpose: purpose,
-      p_amount: (bound * prompt + maxTokens * completion + request) * 1.1,
+      // Image tokenization differs by provider. Reserve the full input context
+      // rather than underestimate an image call's charge.
+      p_amount:
+        ((images.length ? model.context_length - maxTokens : bound) * prompt +
+          maxTokens * completion +
+          request +
+          images.length * imagePrice) *
+        1.1,
     }),
   );
   const response = await fetch(`${BASE}/chat/completions`, {
@@ -78,7 +102,18 @@ export async function generateJSON({
       model: modelId,
       messages: [
         { role: "system", content: system },
-        { role: "user", content: serialized },
+        {
+          role: "user",
+          content: images.length
+            ? [
+                { type: "text", text: serialized },
+                ...images.map((url) => ({
+                  type: "image_url",
+                  image_url: { url },
+                })),
+              ]
+            : serialized,
+        },
       ],
       max_tokens: maxTokens,
       response_format: {

@@ -16,10 +16,16 @@
 
 - Owner chose to select models and budgets personally; last observed settings have blank models and a zero budget. No paid AI call was made.
 - A complete paid crawl, candidate review, Sheet publication, and actual evidence-backed AI answer remain unverified until those settings are saved and a knowledge revision is approved.
-- Image-only policies and embedded documents need manual ingestion support before they can be approved; the current version intentionally blocks those candidates.
+- SOP image/flowchart extraction is implemented with original-image review and explicit approval confirmation. Unreadable images and embedded documents still block approval. Paid vision quality on real Foodi SOPs requires an owner-selected vision model and a new crawl.
 - Semantic/Banglish retrieval quality needs an owner-reviewed quiz set. Current retrieval is lexical.
 - The local device must be running for crawling/publication. Schedules remain paused; no Render resources are used.
 
 Production deployment is READY at https://foodi-quiz-assistant.vercel.app (Vercel deployment `dpl_3X9LWYeprt7tmmYcZ5nMxjdJbRTt`). Production browser verification passed: login, live model selector, settings save (200), hosted worker-start rejection (403), and no JavaScript runtime errors. Quiz requests correctly return 503 until a knowledge revision is published.
 
 Project code is published to https://github.com/Sabbirshay/foodi-quiz-assistant on `main`.
+
+## SOP image support update
+
+- Added bounded image downloads, structured transcription and flowchart graph validation, private original-image review, and explicit reviewer confirmation.
+- Multimodal transport and conservative image budget reservations tested without paid provider calls. Browser fixture verifies original-image loading and acknowledgement.
+- The currently saved crawler model `z-ai/glm-5.2` is text-only; owner must choose an image-capable crawler model before a new crawl. No automatic model substitution.

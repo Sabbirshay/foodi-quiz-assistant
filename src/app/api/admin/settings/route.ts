@@ -35,6 +35,15 @@ export async function PUT(request: Request) {
           );
     }
     if (
+      data.crawler_model &&
+      !(await listModels())
+        .find((m) => m.id === data.crawler_model)
+        ?.architecture?.input_modalities?.includes("image")
+    )
+      throw new AppError(
+        "Choose a crawler model that supports images and structured outputs.",
+      );
+    if (
       data.schedule_enabled &&
       (!data.crawler_model ||
         !process.env.OPENROUTER_API_KEY ||

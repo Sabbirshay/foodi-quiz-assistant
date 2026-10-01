@@ -2,6 +2,7 @@ import { requireMember, AppError } from "@/lib/auth";
 import { database, must } from "@/lib/db";
 import { body, json, failure } from "@/lib/http";
 import { z } from "zod";
+import { listModels } from "@/lib/openrouter";
 export async function POST(request: Request) {
   try {
     const m = await requireMember(true);
@@ -26,6 +27,15 @@ export async function POST(request: Request) {
       (!cfg.crawler_model || cfg.daily_budget_usd <= 0 || cfg.max_call_usd <= 0)
     )
       throw new AppError("Choose a crawler model and spending limits first.");
+    if (
+      kind === "crawl" &&
+      !(await listModels())
+        .find((model) => model.id === cfg.crawler_model)
+        ?.architecture?.input_modalities?.includes("image")
+    )
+      throw new AppError(
+        "Your crawler model is text-only. Select a vision-capable model in Models & schedule before crawling SOP images.",
+      );
     const result = await db
       .from("jobs")
       .insert({ kind, requested_by: m.id })

@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { ImageReview } from "./image-review";
 import { useRouter } from "next/navigation";
 import {
   Settings2,
@@ -54,6 +55,9 @@ export function AdminPanel({
   usage,
 }: Props) {
   const router = useRouter();
+  const [imagesReviewed, setImagesReviewed] = useState<Record<string, boolean>>(
+    {},
+  );
   const [tab, setTab] = useState("settings"),
     [settings, setSettings] = useState<Settings>(() =>
       settingsSchema.parse(
@@ -111,6 +115,11 @@ export function AdminPanel({
   const selected = (id: string) => models.find((m) => m.id === id);
   function modelControl(label: string, key: "answer_model" | "crawler_model") {
     const m = selected(settings[key]);
+    const choices = shown.filter(
+      (model) =>
+        key !== "crawler_model" ||
+        model.architecture?.input_modalities?.includes("image"),
+    );
     return (
       <div>
         <label className="field-label" htmlFor={key}>
@@ -122,15 +131,23 @@ export function AdminPanel({
           onChange={(e) => update(key, e.target.value)}
         >
           <option value="">Select a model</option>
-          {settings[key] && !shown.some((m) => m.id === settings[key]) && (
+          {settings[key] && !choices.some((m) => m.id === settings[key]) && (
             <option value={settings[key]}>{settings[key]}</option>
           )}
-          {shown.map((m) => (
+          {choices.map((m) => (
             <option key={m.id} value={m.id}>
               {m.name}
             </option>
           ))}
         </select>
+        {key === "crawler_model" &&
+          m &&
+          !m.architecture?.input_modalities?.includes("image") && (
+            <p className="error-message">
+              This saved model is text-only. Choose a vision-capable model
+              before your next crawl.
+            </p>
+          )}
         {m ? (
           <p className="help-text">
             ${(Number(m.pricing.prompt) * 1e6).toFixed(2)} input / $
@@ -245,8 +262,10 @@ export function AdminPanel({
                 {modelControl("Quiz answering model", "answer_model")}
                 {modelControl("Crawler analysis model", "crawler_model")}
                 <p className="help-text">
-                  Crawlee loads the pages. Your crawler model identifies policy
-                  sections and returns exact source excerpts for review.
+                  The crawler model must support images. Vision requests reserve
+                  the model’s full input-context cost within your spending
+                  limits. Crawlee loads the pages. Your crawler model identifies
+                  policy sections and returns exact source excerpts for review.
                 </p>
                 <div className="field-row">
                   <div>
@@ -491,17 +510,36 @@ export function AdminPanel({
                     <pre>{c.content}</pre>
                   </div>
                 </div>
+                {c.content.includes("Image fingerprint:") && (
+                  <ImageReview
+                    key={c.id + c.hash}
+                    id={c.id}
+                    hash={c.hash}
+                    onReviewed={(checked) =>
+                      setImagesReviewed((current) => ({
+                        ...current,
+                        [c.id]: checked,
+                      }))
+                    }
+                  />
+                )}
                 {c.status === "pending" && (
                   <div className="review-actions">
                     <button
                       className="primary-button"
-                      disabled={!!busy || c.coverage_notes.length > 0}
+                      disabled={
+                        !!busy ||
+                        c.coverage_notes.length > 0 ||
+                        (c.content.includes("Image fingerprint:") &&
+                          !imagesReviewed[c.id])
+                      }
                       onClick={() =>
                         action(c.id, async () => {
                           await request("/api/admin/reviews", "POST", {
                             id: c.id,
                             hash: c.hash,
                             decision: "approved",
+                            images_reviewed: !!imagesReviewed[c.id],
                           });
                           setNotice("Source approved. Publish when ready.");
                         })

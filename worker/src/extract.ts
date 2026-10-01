@@ -59,6 +59,20 @@ export async function extractPage(page: Page) {
         return inner;
       },
     };
+    const imageUrls = [
+      ...new Set([
+        ...Array.from(root.querySelectorAll("img")).map(
+          (img) => img.currentSrc || img.src,
+        ),
+        ...Array.from(root.querySelectorAll("[style]")).flatMap((element) =>
+          Array.from(
+            getComputedStyle(element).backgroundImage.matchAll(
+              /url\(["']?(https:[^"')]+)["']?\)/g,
+            ),
+          ).map((match) => match[1]),
+        ),
+      ]),
+    ];
     return {
       title: document.title,
       content: walker.text(root),
@@ -66,7 +80,8 @@ export async function extractPage(page: Page) {
         (a) => (a as HTMLAnchorElement).href,
       ),
       embeds: root.querySelectorAll("iframe,object,embed").length,
-      images: root.querySelectorAll("img").length,
+      images: imageUrls.length,
+      imageUrls,
       collapsed: root.querySelectorAll('[aria-expanded="false"]').length,
     };
   });
