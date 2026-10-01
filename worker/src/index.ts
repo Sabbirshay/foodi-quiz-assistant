@@ -1,3 +1,4 @@
+import { mkdirSync, writeFileSync } from "node:fs";
 import { database, must, configured } from "../../src/lib/db";
 import { nextRun } from "../../src/lib/safety";
 import { crawl } from "./crawl";
@@ -39,6 +40,8 @@ while (running) {
         .select("*")
         .single(),
     ) as Settings & { next_run_at: string | null; updated_at: string };
+    mkdirSync("storage", { recursive: true });
+    writeFileSync("storage/worker-heartbeat", now);
     if (cfg.schedule_enabled && (!cfg.next_run_at || cfg.next_run_at <= now)) {
       const changed = must(
         await db
@@ -64,7 +67,7 @@ while (running) {
           .from("app_settings")
           .update({ worker_seen_at: new Date().toISOString() })
           .eq("id", 1)
-          .then(() => {});
+          .then((result) => { if (!result.error) writeFileSync("storage/worker-heartbeat", new Date().toISOString()); });
         void db
           .from("jobs")
           .update({ lease_until: new Date(Date.now() + 180000).toISOString() })
@@ -122,3 +125,7 @@ while (running) {
   }
   if (running) await sleep(15000);
 }
+
+// Crawlee/browser handles may survive a finished job. Once the loop drains,
+// terminate so the launcher can release its lock and restart cleanly.
+process.exit(0);

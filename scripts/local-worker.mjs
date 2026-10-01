@@ -33,8 +33,19 @@ try {
     process.exit(1);
   }
   if (alive) {
-    console.log("The local crawler is already running.");
-    process.exit(0);
+    let recent = false;
+    try {
+      const heartbeat = Date.parse(
+        readFileSync(resolve(root, "storage/worker-heartbeat"), "utf8"),
+      );
+      recent = Number.isFinite(heartbeat) && Date.now() - heartbeat < 120000;
+    } catch {}
+    console.log(
+      recent
+        ? "The local crawler is running and recently connected to Supabase. Refresh Crawl activity on the website."
+        : "A crawler process exists, but its heartbeat is missing or stale. It may be stopping or disconnected. Check storage/worker.log; this does not mean the crawler is online.",
+    );
+    process.exit(recent ? 0 : 1);
   }
   rmSync(lock, { recursive: true });
   mkdirSync(lock);
