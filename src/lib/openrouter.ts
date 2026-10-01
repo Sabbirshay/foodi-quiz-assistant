@@ -75,21 +75,27 @@ export async function generateJSON({
     )
   )
     throw new Error("Model pricing is unavailable.");
-  const reservation = must(
-    await database().rpc("reserve_usage", {
-      p_user: userId,
-      p_model: modelId,
-      p_purpose: purpose,
-      // Image tokenization differs by provider. Reserve the full input context
-      // rather than underestimate an image call's charge.
-      p_amount:
-        ((images.length ? model.context_length - maxTokens : bound) * prompt +
-          maxTokens * completion +
-          request +
-          images.length * imagePrice) *
-        1.1,
-    }),
-  );
+  const reservationResult = await database().rpc("reserve_usage", {
+    p_user: userId,
+    p_model: modelId,
+    p_purpose: purpose,
+    // Image tokenization differs by provider. Reserve the full input context
+    // rather than underestimate an image call's charge.
+    p_amount:
+      ((images.length ? model.context_length - maxTokens : bound) * prompt +
+        maxTokens * completion +
+        request +
+        images.length * imagePrice) *
+      1.1,
+  });
+  if (reservationResult.error) {
+    const message = reservationResult.error.message;
+    if (message.includes("Daily budget exhausted"))
+      throw new Error("daily_budget_exhausted");
+    if (message.includes("Budget disabled or call cap exceeded"))
+      throw new Error("call_budget_exceeded");
+  }
+  const reservation = must(reservationResult);
   const response = await fetch(`${BASE}/chat/completions`, {
     method: "POST",
     signal: AbortSignal.timeout(45000),

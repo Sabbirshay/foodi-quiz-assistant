@@ -67,7 +67,13 @@ while (running) {
           .from("app_settings")
           .update({ worker_seen_at: new Date().toISOString() })
           .eq("id", 1)
-          .then((result) => { if (!result.error) writeFileSync("storage/worker-heartbeat", new Date().toISOString()); });
+          .then((result) => {
+            if (!result.error)
+              writeFileSync(
+                "storage/worker-heartbeat",
+                new Date().toISOString(),
+              );
+          });
         void db
           .from("jobs")
           .update({ lease_until: new Date(Date.now() + 180000).toISOString() })
@@ -92,7 +98,7 @@ while (running) {
             .eq("id", job.id)
             .eq("lease_token", job.lease_token),
         );
-      } catch {
+      } catch (error) {
         must(
           await db
             .from("jobs")
@@ -100,7 +106,10 @@ while (running) {
               status: "failed",
               error_code:
                 job.kind === "crawl"
-                  ? "crawl_incomplete_or_provider_error"
+                  ? error instanceof Error &&
+                    error.message === "crawl_budget_limit"
+                    ? "crawl_budget_limit"
+                    : "crawl_incomplete_or_provider_error"
                   : "publication_failed_check_integrations",
               finished_at: new Date().toISOString(),
               lease_until: null,

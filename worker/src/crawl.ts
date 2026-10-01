@@ -42,6 +42,7 @@ export async function crawl(jobId: string, cfg: Settings) {
     candidates: 0,
     failed: 0,
     discovered: 0,
+    budget_blocked: 0,
   };
   const known = must(await db.from("source_pages").select("url"));
   const discovered = new Set<string>([PORTAL_URL, ...known.map((p) => p.url)]);
@@ -340,7 +341,15 @@ export async function crawl(jobId: string, cfg: Settings) {
         );
         stats.candidates++;
       },
-      failedRequestHandler: async ({ request }) => {
+      failedRequestHandler: async ({ request }, error) => {
+        if (
+          ["daily_budget_exhausted", "call_budget_exceeded"].includes(
+            error.message,
+          )
+        ) {
+          stats.budget_blocked++;
+          void crawler.autoscaledPool?.abort();
+        }
         stats.failed++;
         const url = canonicalPortalUrl(request.url);
         if (url)
@@ -365,15 +374,30 @@ export async function crawl(jobId: string, cfg: Settings) {
     },
     20 * 60 * 1000,
   );
+  const progress = setInterval(() => {
+    void db
+      .from("jobs")
+      .update({ stats: { ...stats, discovered: discovered.size } })
+      .eq("id", jobId)
+      .eq("status", "running")
+      .then((result) => {
+        if (result.error) console.error("crawl_progress_write_failed");
+      });
+  }, 5000);
   try {
     await crawler.run([...discovered].map((url) => ({ url, uniqueKey: url })));
+  } catch (error) {
+    if (!stats.budget_blocked) throw error;
   } finally {
     clearTimeout(timer);
+    clearInterval(progress);
   }
   stats.discovered = discovered.size;
   if (stats.failed || completed.size < discovered.size) {
     must(await db.from("jobs").update({ stats }).eq("id", jobId));
-    throw new Error("crawl_incomplete");
+    throw new Error(
+      stats.budget_blocked ? "crawl_budget_limit" : "crawl_incomplete",
+    );
   }
   return stats;
 }

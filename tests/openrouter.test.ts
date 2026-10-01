@@ -117,6 +117,32 @@ test("OpenRouter uses owner-selected model, strict JSON, server secrets, and bud
       }),
       /available structured-output model/,
     );
+    for (const [message, expected] of [
+      ["Daily budget exhausted", "daily_budget_exhausted"],
+      ["Budget disabled or call cap exceeded", "call_budget_exceeded"],
+    ]) {
+      globalThis.fetch = async (input) => {
+        const url = String(input);
+        if (url.endsWith("/models")) return Response.json({ data: [model] });
+        assert.ok(
+          url.includes("/rpc/reserve_usage"),
+          "A blocked budget must never reach generation",
+        );
+        return Response.json({ message, code: "P0001" }, { status: 400 });
+      };
+      await assert.rejects(
+        generateJSON({
+          modelId: model.id,
+          system: "x",
+          payload: {},
+          schema: {},
+          name: "budget_fixture",
+          userId: null,
+          purpose: "crawl",
+        }),
+        { message: expected },
+      );
+    }
   } finally {
     globalThis.fetch = oldFetch;
     for (const key of [

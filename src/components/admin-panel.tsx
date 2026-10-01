@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { ImageReview } from "./image-review";
 import { useRouter } from "next/navigation";
 import {
@@ -55,6 +55,12 @@ export function AdminPanel({
   usage,
 }: Props) {
   const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
+  const [lastRefresh, setLastRefresh] = useState<string>("");
+  function refreshActivity() {
+    startRefresh(() => router.refresh());
+    setLastRefresh(new Date().toLocaleTimeString());
+  }
   const [imagesReviewed, setImagesReviewed] = useState<Record<string, boolean>>(
     {},
   );
@@ -76,6 +82,14 @@ export function AdminPanel({
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
   const [next, setNext] = useState(initial.next_run_at);
+  useEffect(() => {
+    if (tab !== "runs") return;
+    const timer = setInterval(() => {
+      startRefresh(() => router.refresh());
+      setLastRefresh(new Date().toLocaleTimeString());
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [tab, router]);
   async function request(path: string, method: string, payload?: unknown) {
     const r = await fetch(path, {
       method,
@@ -646,11 +660,17 @@ export function AdminPanel({
             </button>
             <button
               className="secondary-button"
-              onClick={() => router.refresh()}
+              onClick={refreshActivity}
+              disabled={refreshing}
             >
-              <RefreshCw size={14} /> Refresh
+              <RefreshCw size={14} className={refreshing ? "spin" : ""} />{" "}
+              {refreshing ? "Refreshing…" : "Refresh"}
             </button>
           </div>
+          <p className="help-text" role="status">
+            Activity checks automatically every 10 seconds.
+            {lastRefresh && ` Last check: ${lastRefresh}.`}
+          </p>
           <section className="panel">
             {jobs.length ? (
               <div className="table-wrap">
@@ -672,11 +692,19 @@ export function AdminPanel({
                           <span className="badge">{j.status}</span>
                         </td>
                         <td>
-                          {j.error_code ||
-                            Object.entries(j.stats)
-                              .map(([k, v]) => `${k}: ${v}`)
-                              .join(" · ") ||
-                            "—"}
+                          {j.error_code && (
+                            <p>
+                              {j.error_code === "crawl_budget_limit"
+                                ? "Stopped: AI budget reservation exceeds the daily or per-call limit. Review Models & schedule before retrying."
+                                : j.error_code.replaceAll("_", " ")}
+                            </p>
+                          )}
+                          {Object.entries(j.stats)
+                            .map(([k, v]) => `${k}: ${v}`)
+                            .join(" · ") ||
+                            (j.status === "running"
+                              ? "Starting or processing a page; progress appears after the next worker update."
+                              : "—")}
                         </td>
                       </tr>
                     ))}
