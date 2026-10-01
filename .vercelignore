@@ -1,0 +1,8 @@
+.env*
+!.env.example
+.git
+storage
+test-results
+playwright-report
+
+.next-test/

@@ -1,0 +1,11 @@
+{
+  "name": "@foodi/crawler",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "crawlee": "3.18.2",
+    "playwright": "1.63.0",
+    "google-auth-library": "10.9.1"
+  }
+}
