@@ -132,14 +132,38 @@ export function AdminPanel({
         >
           <option value="">Select a model</option>
           {settings[key] && !choices.some((m) => m.id === settings[key]) && (
-            <option value={settings[key]}>{settings[key]}</option>
+            <option value={settings[key]}>
+              {m?.name ?? settings[key]} ·{" "}
+              {m
+                ? m.architecture?.input_modalities?.includes("image")
+                  ? "Vision · reads images"
+                  : "Text only"
+                : "Load models to check capabilities"}
+            </option>
           )}
           {choices.map((m) => (
             <option key={m.id} value={m.id}>
-              {m.name}
+              {m.name} ·{" "}
+              {m.architecture?.input_modalities?.includes("image")
+                ? "Vision · reads images"
+                : "Text only"}
             </option>
           ))}
         </select>
+        {m && (
+          <div style={{ marginTop: 10 }}>
+            <span className="badge">
+              {m.architecture?.input_modalities?.includes("image")
+                ? "Vision · reads images"
+                : "Text only · no image input"}
+            </span>
+            <p className="help-text">
+              {m.architecture?.input_modalities?.includes("image")
+                ? "Supports image input for SOP text and flowchart extraction. Check extracted steps and branches against the original before approval."
+                : "Reads written text only. Cannot extract guidance directly from SOP images or flowcharts."}
+            </p>
+          </div>
+        )}
         {key === "crawler_model" &&
           m &&
           !m.architecture?.input_modalities?.includes("image") && (
